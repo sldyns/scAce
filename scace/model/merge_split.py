@@ -13,8 +13,6 @@ def cluster_intra_dis(X, cent, label):
 
 def merge_compute(y_pred, mu, scace_emb):
 
-    n_clusters = len(np.unique(y_pred))
-
     # Check if len(mu_prepare) == len(np.unique(y_pred))
     idx_cent = []
     for i in range(len(mu)):
@@ -24,7 +22,7 @@ def merge_compute(y_pred, mu, scace_emb):
         mu = mu
     else:
         mu = np.delete(mu, idx_cent, 0)
-        n_clusters = len(mu)
+    n_clusters = len(mu)
 
     # Change label to 0 ~ len(np.unique(label))
     for i in range(len(np.unique(y_pred))):
@@ -46,23 +44,18 @@ def merge_compute(y_pred, mu, scace_emb):
 
     d_bar = sum_1 / (n_clusters * (n_clusters - 1))
 
-    return y_pred, Centroid, d_bar, intra_dis, d_ave, n_clusters
+    return y_pred, Centroid, d_bar, intra_dis, d_ave
 
 
 
 def centroid_merge(X, cent_to_merge, label, min_dis, intra_dis, d_ave):
-    # d_bar_f = []
-    # d_inter_f = []
+
     pred_f = []
 
     for t in range(200):
 
-        # d_bar_f.append(min_dis)
         if t == 0:
             pred_f.append(label)
-
-        # intra_dis = cluster_intra_dis(X, cent_to_merge, label)
-        # d_ave = np.mean(intra_dis)
 
         Cent_dis = []
         Cent_i = []
@@ -78,8 +71,6 @@ def centroid_merge(X, cent_to_merge, label, min_dis, intra_dis, d_ave):
                 Cent_dis.append(weight * dis)
                 Cent_i.append(i)
                 Cent_e.append(e)
-
-        # d_inter_f.append(np.round(np.asarray(Cent_dis), 2))
 
         for i in range(len(Cent_dis)):
             if Cent_dis[i] < min_dis and Cent_dis[i] == min(Cent_dis):
@@ -109,10 +100,6 @@ def centroid_merge(X, cent_to_merge, label, min_dis, intra_dis, d_ave):
         n_clusters_t = len(np.unique(label))
         pred_f.append(label)
 
-        # adata.obs['pred'] = np.array(label).squeeze()
-        # adata.obs['pred'] = adata.obs['pred'].astype(str).astype('category')
-        # sc.pl.tsne(adata, color=['pred'])
-
         intra_dis = cluster_intra_dis(X, cent_to_merge, label)
         d_ave = np.mean(intra_dis)
 
@@ -120,7 +107,6 @@ def centroid_merge(X, cent_to_merge, label, min_dis, intra_dis, d_ave):
         for i in range(n_clusters_t):
             for j in range(i + 1, n_clusters_t):
                 weight = d_ave / ((intra_dis[i] + intra_dis[j]) / 2)
-                # weight = 1
 
                 sum_1 += weight * (np.linalg.norm(Final_Centroid_merge[i] - Final_Centroid_merge[j]))
 
@@ -156,12 +142,16 @@ def centroid_merge(X, cent_to_merge, label, min_dis, intra_dis, d_ave):
 
 
 def centroid_split(X, X_1, Centroid_split, label):
-    '''
-    X: 计数矩阵
-    X_1：计数矩阵 + 标签(标签放最后一列)
-    '''
+    """
+        Parameters
+        ----------
+        X
+            Embedding after pre-training. Rows are cells and columns are genes.
+        X_1
+            Embedding + Column vectors of cell types (Label splicing in the last column).
+    """
 
-    ### 算权重
+    ### Compute weights
     intra_dis = cluster_intra_dis(X, Centroid_split, label)
     d_ave = np.mean(intra_dis)
 
@@ -269,7 +259,7 @@ def centroid_split(X, X_1, Centroid_split, label):
         X_1 = np.concatenate([np.array(X), np.array(label).reshape(len(label), 1)], axis=1)
         X_copy = 1 * X_1
 
-        ### Calculate weights
+        ### Compute weights
         intra_dis = cluster_intra_dis(X, Centroid_split, np.array(label))
         d_ave = np.mean(intra_dis)
 

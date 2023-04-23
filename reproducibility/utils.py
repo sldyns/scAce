@@ -1,19 +1,18 @@
-import collections
-import functools
-import os
-import random
-
 import h5py
-import numpy as np
 import pandas as pd
-import scanpy as sc
 import scipy as sp
+import functools
+import collections
+import numpy as np
 import scipy.sparse
-import tensorflow as tf
-import torch
 import tqdm
+import scanpy as sc
 from sklearn import metrics
+import os
+import tensorflow as tf
 
+import torch
+import random
 
 def set_seed(seed):
     np.random.seed(seed)
@@ -22,25 +21,35 @@ def set_seed(seed):
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
 
-
 def tf_seed(seed):
     os.environ['PYTHONHASHSEED'] = str(seed)
-    set_seed(seed)
+    random.seed(seed)
     tf.set_random_seed(seed)
+    np.random.seed(seed)
     os.environ['TF_DETERMINISTIC_OPS'] = '1'
     os.environ['TF_CUDNN_DETERMINISTIC'] = '1'
-
 
 def data_sample(x, labels, seed):
     x_sample = []
     y_sample = []
     for label in list(np.unique(labels)):
-        data = pd.DataFrame(x[labels == label,])
+        data = pd.DataFrame(x[labels == label, ])
         data = data.sample(frac=0.95, replace=False, weights=None, random_state=seed, axis=0)
         x_sample.append(data.values)
-        y_sample.extend([label] * (data.shape[0]))
+        y_sample.extend([label]*(data.shape[0]))
 
     return np.concatenate(x_sample, axis=0), np.array(y_sample).astype('int')
+
+
+def preprocessing_scgmaae(count):
+    adata = sc.AnnData(count)
+    sc.pp.filter_genes(adata, min_cells=3)
+    sc.pp.normalize_per_cell(adata)
+    sc.pp.log1p(adata)
+    sc.pp.highly_variable_genes(adata, n_top_genes=1000)
+    adata = adata[:, adata.var.highly_variable]
+    return adata
+
 
 
 def data_preprocess(adata, filter_min_counts=True, scale_factor=True, normalize_input=True, logtrans_input=True,
@@ -57,6 +66,7 @@ def data_preprocess(adata, filter_min_counts=True, scale_factor=True, normalize_
         adata.raw = adata.copy()
     else:
         adata.raw = adata
+
 
     if scale_factor:
         sc.pp.normalize_per_cell(adata)
@@ -90,7 +100,6 @@ def calculate_metric(pred, label):
     ari = np.round(metrics.adjusted_rand_score(label, pred), 4)
 
     return nmi, ari
-
 
 def read_clean(data):
     assert isinstance(data, np.ndarray)
@@ -265,3 +274,5 @@ encode = empty_safe(np.vectorize(lambda _x: str(_x).encode("utf-8")), "S")
 upper = empty_safe(np.vectorize(lambda x: str(x).upper()), str)
 lower = empty_safe(np.vectorize(lambda x: str(x).lower()), str)
 tostr = empty_safe(np.vectorize(str), str)
+
+

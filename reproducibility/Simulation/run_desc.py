@@ -41,7 +41,6 @@ adata = desc.train(adata,
 
 y_pred = np.asarray(adata.obs['desc_0.8'], dtype=int)
 embedding = np.array(adata.obsm['X_Embeded_z0.8'])
-# tsne = np.array(adata.obsm['X_tsne0.8'])
 k = len(np.unique(y_pred))
 nmi, ari = calculate_metric(y, y_pred)
 

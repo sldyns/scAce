@@ -4,9 +4,9 @@ import scanpy as sc
 import torch
 from scipy.optimize import linear_sum_assignment
 from sklearn import metrics
+from sklearn.cluster import KMeans
 
 from ..model import centroid_split
-
 
 def compute_mu(scace_emb, pred):
     mu = []
@@ -40,12 +40,32 @@ def cluster_acc(y_true, y_pred):
     return w[row_ind, col_ind].sum() * 1.0 / y_pred.size
 
 
-def clustering(model, exp_mat, init_cluster=None, resolution=None):
+def clustering(model, exp_mat, init_cluster=None, init_method=None, resolution=None):
     model.eval()
     scace_emb = model.EncodeAll(exp_mat)
     model.train()
 
-    if resolution:
+
+    if init_method == 'kmeans':
+        scace_emb = scace_emb.cpu().numpy()
+        max_score = -1
+        k_init = 0
+        for k in range(15, 31):
+
+            kmeans = KMeans(k, n_init=50)
+            y_pred = kmeans.fit_predict(scace_emb)
+            s_score = metrics.silhouette_score(scace_emb, y_pred)
+            if s_score > max_score:
+                max_score = s_score
+                k_init = k
+
+        kmeans = KMeans(k_init, n_init=50)
+        y_pred = kmeans.fit_predict(scace_emb)
+        mu = kmeans.cluster_centers_
+        return y_pred, mu, scace_emb
+
+
+    elif init_method == 'leiden':
         adata_l = sc.AnnData(scace_emb.cpu().numpy())
         sc.pp.neighbors(adata_l, n_neighbors=10)
         sc.tl.leiden(adata_l, resolution=resolution, random_state=0)
@@ -54,6 +74,17 @@ def clustering(model, exp_mat, init_cluster=None, resolution=None):
 
         return y_pred, mu, scace_emb.cpu().numpy()
 
+
+    elif init_method == 'louvain':
+        adata_l = sc.AnnData(scace_emb.cpu().numpy())
+        sc.pp.neighbors(adata_l, n_neighbors=10)
+        sc.tl.louvain(adata_l, resolution=resolution, random_state=0)
+        y_pred = np.asarray(adata_l.obs['louvain'], dtype=int)
+        mu = compute_mu(scace_emb.cpu().numpy(), y_pred)
+
+        return y_pred, mu, scace_emb.cpu().numpy()
+
+
     if init_cluster is not None:
         cluster_centers = compute_mu(scace_emb.cpu().numpy(), init_cluster)
 
@@ -61,6 +92,7 @@ def clustering(model, exp_mat, init_cluster=None, resolution=None):
         mu, y_pred = centroid_split(scace_emb.cpu().numpy(), data_1, cluster_centers, np.array(init_cluster))
 
         return y_pred, mu, scace_emb.cpu().numpy()
+
 
     # Deep Embedded Clustering
     q = model.soft_assign(scace_emb)

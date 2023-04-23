@@ -3,12 +3,12 @@ import numpy as np
 import h5py
 import os
 
-data_names = ['Human1', 'Human2', 'Human3', 'Mouse1', 'Mouse2', 'Mouse3', 'Sim']
+data_names = ['Human_k', 'Human_p', 'Human_PBMC', 'Mouse_E', 'Mouse_h', 'Mouse_k', 'Turtle_b', 'Sim']
 
 for data_name in data_names:
     print('Sampling data: ' + data_name + ' ...')
 
-    if data_name in ['Mouse1', 'Mouse2']:
+    if data_name in ['Mouse_E', 'Mouse_h', 'Mouse_k', 'Turtle_b']:
         mat, obs, var, uns = read_data(data_name+'.h5', sparsify=False, skip_exprs=False)
         x = np.array(mat.toarray())
         cell_name = np.array(obs["cell_type1"])
@@ -19,7 +19,7 @@ for data_name in data_names:
         x, y = np.array(data_mat['X']), np.array(data_mat['Y'])
         data_mat.close()
 
-    path = './sample/data_' + data_name + '/'
+    path = './sample/' + data_name + '/'
     os.makedirs(path)
 
     for i in range(10):

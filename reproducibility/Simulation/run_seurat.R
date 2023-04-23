@@ -14,10 +14,10 @@ h5dump(h,load=FALSE)
 raw_count=h$X
 sctype= h$Y
 
-colnames <- colnames(raw_count, do.NULL = FALSE)
-rownames <- rownames(raw_count, do.NULL = FALSE)
-colnames(raw_count) <- colnames
-rownames(raw_count) <- rownames
+c_names <- colnames(raw_count, do.NULL = FALSE)
+r_names <- rownames(raw_count, do.NULL = FALSE)
+colnames(raw_count) <- c_names
+rownames(raw_count) <- r_names
 
 adata.data <- raw_count
 adata <- CreateSeuratObject(counts=adata.data, min.cells=3, min.features=200)
@@ -27,31 +27,31 @@ adata <- ScaleData(adata)
 adata <- RunPCA(adata, features = VariableFeatures(object = adata))  
 adata <- FindNeighbors(adata)
 adata <- FindClusters(adata, random.seed =0)
-adata <- RunTSNE(adata, seed.use = 0)
+adata <- RunUMAP(adata, seed.use = 0)
 
 cluster_l = adata@meta.data[["seurat_clusters"]]
 cluster_l = as.numeric(cluster_l)
-cluster = as.matrix(cluster_l, ncol=1)
+Cluster = as.matrix(cluster_l, ncol=1)
 
-ARI = ARI(c(cluster_l), c(sctype))
-NMI = NMI(c(cluster_l), c(sctype))
+ari = ARI(c(cluster_l), c(sctype))
+nmi = NMI(c(cluster_l), c(sctype))
 K = length(unique(cluster_l))
-TSNE = adata@reductions[["tsne"]]@cell.embeddings
+UMAP = adata@reductions[["umap"]]@cell.embeddings
 
-results = data.frame(ARI, NMI, K, cluster, TSNE)
-write.csv(results, "./results/Seurat_wo_sample.csv")
+results = data.frame(ari, nmi, K, Cluster, UMAP)
+write.csv(results, "results/Seurat_wo_sample.csv")
 
 
 
 
 ##################### Run 10 rounds with sampling 95% data ####################
 
-ARI = c()
-NMI = c()
+ari_all = c()
+nmi_all = c()
 K = c()
 
-directory<-"../data/sample/data_Sim"
-files <- list.files(directory, pattern = "^Sim.*\\.h5$", full.names = TRUE)
+directory<-"../data/sample/Sim"
+files <- list.files(directory, pattern = "^Sim_.*\\.h5$", full.names = TRUE)
 
 for(i in 1:10){
   
@@ -60,10 +60,10 @@ for(i in 1:10){
   raw_count=h$X
   sctype= h$Y
   
-  colnames <- colnames(raw_count, do.NULL = FALSE)
+  c_names <- colnames(raw_count, do.NULL = FALSE)
   rownames <- rownames(raw_count, do.NULL = FALSE)
-  colnames(raw_count) <- colnames
-  rownames(raw_count) <- rownames
+  colnames(raw_count) <- c_names
+  rownames(raw_count) <- r_names
 
   adata.data <- raw_count
   adata <- CreateSeuratObject(counts=adata.data)
@@ -80,10 +80,10 @@ for(i in 1:10){
   cluster_l = as.numeric(cluster_l)
   cluster = as.matrix(cluster_l, ncol=1)
   
-  ARI[i] = ARI(c(cluster_l), c(sctype))
-  NMI[i] = NMI(c(cluster_l), c(sctype))
+  ari_all[i] = ARI(c(cluster_l), c(sctype))
+  nmi_all[i] = NMI(c(cluster_l), c(sctype))
   K[i] = length(unique(cluster_l))
 }
 
-results = data.frame(ARI, NMI, K)
-write.csv(results, "./results/Seurat_with_sample.csv")
+results = data.frame(ari_all, nmi_all, K)
+write.csv(results, "results/Seurat_with_sample.csv")

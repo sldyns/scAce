@@ -20,9 +20,9 @@ adata = sc.AnnData(x)
 adata.obs['celltype'] = y
 
 adata = data_preprocess(adata)
-adata, nmi, ari, K, pred_all, emb_all = run_scace(adata, cl_type='celltype', n_epochs_pre=300, return_all=True)
+adata, nmi, ari, K, pred_all, emb_all, _ = run_scace(adata, cl_type='celltype', return_all=True)
 
-np.savez("./results/scAce_wo_sample.npz", ARI=ari, NMI=nmi, K=K, Embedding=emb_all, Clusters=pred_all, Labels=y)
+np.savez("results/scAce_wo_sample.npz", ARI=ari, NMI=nmi, K=K, Embedding=emb_all, Clusters=pred_all, Labels=y)
 
 ####################################  Run 10 rounds with sampling 95% data  ####################################
 
@@ -40,7 +40,7 @@ for i in range(total_rounds):
     adata.obs['celltype'] = y_sample
     adata = data_preprocess(adata)
 
-    adata, nmi, ari, K, _, _ = run_scace(adata, cl_type='celltype', n_epochs_pre=300, return_all=True)
+    adata, nmi, ari, K, _, _, _ = run_scace(adata, cl_type='celltype', n_epochs_pre=300, return_all=True)
 
     nmi_all.append(nmi)
     ari_all.append(ari)

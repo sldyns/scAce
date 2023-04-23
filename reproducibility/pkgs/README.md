@@ -3,7 +3,7 @@
 - CIDR: 0.1.5
 - DESC: 2.1.1
 - SCCAF: 0.0.10
-- scScope: 0.1.5
+- scVI: 0.17.3
 - Seurat: 3.2.3
 
 ## graph-sc
@@ -13,6 +13,10 @@ graph-sc is cloned from https://github.com/ciortanmadalina/graph-sc.git
 ## scDeepCluster
 
 scDeepCluster is cloned from https://github.com/ttgump/scDeepCluster_pytorch.git
+
+## scGMAAE
+
+scGMAAE is cloned from https://github.com/WHY-17/scGMAAE.git
 
 ## ADClust
 

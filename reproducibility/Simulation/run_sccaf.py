@@ -19,7 +19,7 @@ adata = data_preprocess(adata)
 
 sc.tl.pca(adata, svd_solver='arpack')
 sc.pp.neighbors(adata)
-sc.tl.leiden(adata, key_added='louvain_r1')
+sc.tl.louvain(adata, key_added='louvain_r1')
 sc.tl.tsne(adata, random_state=0)
 y_pred_init = np.array(adata.obs['louvain_r1'], dtype=int).squeeze()
 

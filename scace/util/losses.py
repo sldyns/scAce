@@ -36,7 +36,6 @@ class ClusterLoss(nn.Module):
 
     def forward(self, target, pred):
         return torch.mean(torch.sum(target * torch.log(target / (pred + 1e-6)), dim=-1))
-        # return torch.sum(target * torch.log(target / (pred + 1e-6)))
 
 
 class ELOBkldLoss(nn.Module):

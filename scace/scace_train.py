@@ -8,15 +8,16 @@ from tqdm import tqdm
 
 from .model import scAce, centroid_merge, merge_compute
 from .util import scDataset, ZINBLoss, ClusterLoss, ELOBkldLoss, clustering, calculate_metric, compute_mu
-
+import time
 
 def run_scace(adata: sc.AnnData,
-              n_epochs_pre: int = 300,
+              n_epochs_pre: int = 200,
               n_epochs: int = 500,
               batch_size: int = 256,
               lr: float = 1e-4,
               resolution: float = 2,
               init_cluster=None,
+              init_method='leiden',
               cl_type=None,
               save_pretrain: bool = False,
               saved_ckpt: str = None,
@@ -37,9 +38,11 @@ def run_scace(adata: sc.AnnData,
         lr
             Learning rate for AdamOptimizer.
         resolution
-            The resolution parameter of sc.tl.leiden for the initial clustering.
+            The resolution parameter of sc.tl.leiden or sc.tl.louvain for the initial clustering.
         init_cluster
             Initial cluster results. If provided, perform cluster splitting after pre-training.
+        init_method
+            Method used for cluster initialization. Default is 'leiden', optionally input 'leiden', 'louvain' or 'kmeans'.
         save_pretrain
             If True, save the pre-trained model.
         saved_ckpt
@@ -67,6 +70,8 @@ def run_scace(adata: sc.AnnData,
             All temporary clustering results. Will be returned if 'return_all' is True.
         emb_all
             All temporary embedding. Will be returned if 'return_all' is True.
+        run_time
+            Time spent in training.
     """
 
     ####################   Assert several input variables  ########################
@@ -94,14 +99,15 @@ def run_scace(adata: sc.AnnData,
 
     ####################   Set some parameters   #################
     # hyper-parameter
-    kld_w = 0.001
+    kld_w2 = 0.01
+    kld_w1 = 0.001
     z_dim = 32
     encode_layers = [512]
     decode_layers = [512]
     activation = 'relu'
 
     # parameter for training
-    tol, clu_w, m_numbers = 0.05, 1., 0
+    tol, clu_w, m_numbers = 0.05, 1, 0
     merge_flag = True
 
     #######################   Prepare models & optimzers & loss  #######################
@@ -113,6 +119,8 @@ def run_scace(adata: sc.AnnData,
     optimizer = optim.Adam(params=scace_model.parameters(), lr=lr)
 
     ZINB_Loss, KLD_Loss, Cluster_Loss = ZINBLoss(ridge_lambda=0), ELOBkldLoss(), ClusterLoss()
+
+    start = time.time()
 
     ###########################   Pre-training   #########################
     if pretrained_ckpt:
@@ -137,7 +145,7 @@ def run_scace(adata: sc.AnnData,
                 zinb_loss = ZINB_Loss(x=raw, mean=mu, disp=disp, pi=pi, scale_factor=sf)
                 kld_loss = KLD_Loss(z_mu, z_logvar)
 
-                loss = zinb_loss + kld_w * kld_loss
+                loss = zinb_loss + kld_w1 * kld_loss
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
@@ -168,8 +176,11 @@ def run_scace(adata: sc.AnnData,
         y_pred_last, mu, scace_emb = clustering(scace_model, exp_mat, init_cluster=init_cluster)
 
     else:
-        print('Perform initial clustering through Leiden with resolution = {}'.format(resolution))
-        y_pred_last, mu, scace_emb = clustering(scace_model, exp_mat, resolution=resolution)
+        if init_method == 'kmeans':
+            print('Perform initial clustering through K-means')
+        else:
+            print('Perform initial clustering through {} with resolution = {}'.format(init_method, resolution))
+        y_pred_last, mu, scace_emb = clustering(scace_model, exp_mat, init_method, resolution=resolution)
 
     # Number of initial clusters
     n_clusters = len(np.unique(y_pred_last))
@@ -207,22 +218,23 @@ def run_scace(adata: sc.AnnData,
         if epoch > 0 and delta_label < tol:
             if not merge_flag: print("Reach tolerance threshold. Stopping training."); break
 
+        if epoch > 0 and (delta_label < tol or epoch % 20 == 0):
+
             print('Reach tolerance threshold. Perform cluster merging.')
 
             mu_prepare = scace_model.mu.cpu().detach().numpy()
-            y_pred, Centroid, d_bar, intra_dis, d_ave, n_clusters = merge_compute(y_pred, mu_prepare, scace_emb)
+            y_pred, Centroid, d_bar, intra_dis, d_ave = merge_compute(y_pred, mu_prepare, scace_emb)
 
             Final_Centroid_merge, Label_merge, n_clusters_t, pred_t = centroid_merge(scace_emb, Centroid, y_pred, d_bar, intra_dis, d_ave)
             m_numbers += 1
 
-            # If n_clusters not change, stop merging clusters
+            # n_clusters not change, stop merging clusters
             if m_numbers > 1 and n_clusters_t == n_clusters:
                 merge_flag, tol = False, tol / 10.
                 print('Stop merging clusters! Continue updating several rounds.')
 
             else:
                 n_clusters = n_clusters_t
-
                 y_pred = Label_merge
 
                 mu = compute_mu(scace_emb, y_pred)
@@ -255,7 +267,7 @@ def run_scace(adata: sc.AnnData,
             clu_loss = Cluster_Loss(p[idx].detach(), q)
 
             # All losses
-            loss = zinb_loss + kld_w * kld_loss + clu_w * clu_loss
+            loss = zinb_loss + kld_w2 * kld_loss + clu_w * clu_loss
 
             # Optimize VAE + DEC
             optimizer.zero_grad()
@@ -274,6 +286,7 @@ def run_scace(adata: sc.AnnData,
                 'Train epoch [{}/{}]. ZINB loss:{:.4f}, kld loss:{:.4f}, cluster loss:{:.4f}, total loss:{:.4f}'.format(
                     epoch + 1, n_epochs, avg_zinb, avg_kld, avg_clu, avg_loss))
 
+
         # Update the targe distribution p
         y_pred, scace_emb, q, p = clustering(scace_model, exp_mat)
 
@@ -281,6 +294,10 @@ def run_scace(adata: sc.AnnData,
             nmi, ari = calculate_metric(y_pred, cell_type)
             print('Clustering   %d: NMI= %.4f, ARI= %.4f, Delta=%.4f' % (
                 epoch + 1, nmi, ari, delta_label))
+
+    end = time.time()
+    run_time = end - start
+    print(f'Total time: {end - start} seconds')
 
     ############################   Return results   #########################
     adata.obsm['scace_emb'] = scace_emb
@@ -290,7 +307,7 @@ def run_scace(adata: sc.AnnData,
 
     if return_all:
         if cl_type is not None:
-            return adata, nmi, ari, K, pred_all, emb_all
-        return adata, K, pred_all, emb_all
+            return adata, nmi, ari, K, pred_all, emb_all, run_time
+        return adata, K, pred_all, emb_all, run_time
 
     return adata

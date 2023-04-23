@@ -14,14 +14,8 @@ data_mat.close()
 
 ####################################  Set parameters  ####################################
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-sigma = 2.5
-gamma = 1
-pretrain_epochs = 300
-batch_size = 256
-n_clusters = 4
-maxiter = 2000
-update_interval = 1
-tol = 0.001
+n_clusters = len(np.unique(y))
+
 
 ####################################  Run without sampling  ####################################
 
@@ -34,17 +28,14 @@ adata.obs['celltype'] = y
 adata = data_preprocess(adata, use_count=True)
 
 model = scDeepCluster(input_dim=adata.n_vars, z_dim=32,
-                      encodeLayer=[256, 64], decodeLayer=[64, 256], sigma=sigma, gamma=gamma,
+                      encodeLayer=[256, 64], decodeLayer=[64, 256],
                       device=device)
 
-model.pretrain_autoencoder(X=adata.X, X_raw=adata.raw.X, size_factor=adata.obs.size_factors,
-                           batch_size=batch_size, epochs=pretrain_epochs)
+model.pretrain_autoencoder(X=adata.X, X_raw=adata.raw.X, size_factor=adata.obs.size_factors)
 
 y_pred, _, _, _, embedded = model.fit(X=adata.X, X_raw=adata.raw.X, size_factor=adata.obs.size_factors,
                                       n_clusters=n_clusters, init_centroid=None,
-                                      y_pred_init=None, y=y, batch_size=batch_size,
-                                      num_epochs=maxiter,
-                                      update_interval=update_interval, tol=tol)
+                                      y_pred_init=None, y=y)
 
 nmi, ari = calculate_metric(y, y_pred)
 print('Evaluating cells: NMI= %.4f, ARI= %.4f' % (nmi, ari))
@@ -69,17 +60,14 @@ for i in range(total_rounds):
     adata = data_preprocess(adata, use_count=True)
 
     model = scDeepCluster(input_dim=adata.n_vars, z_dim=32,
-                          encodeLayer=[256, 64], decodeLayer=[64, 256], sigma=sigma, gamma=gamma,
+                          encodeLayer=[256, 64], decodeLayer=[64, 256],
                           device=device)
 
-    model.pretrain_autoencoder(X=adata.X, X_raw=adata.raw.X, size_factor=adata.obs.size_factors,
-                               batch_size=batch_size, epochs=pretrain_epochs)
+    model.pretrain_autoencoder(X=adata.X, X_raw=adata.raw.X, size_factor=adata.obs.size_factors)
 
     y_pred, _, _, _, _ = model.fit(X=adata.X, X_raw=adata.raw.X, size_factor=adata.obs.size_factors,
                                    n_clusters=n_clusters, init_centroid=None,
-                                   y_pred_init=None, y=y, batch_size=batch_size,
-                                   num_epochs=maxiter,
-                                   update_interval=update_interval, tol=tol)
+                                   y_pred_init=None, y=y)
 
     nmi_all.append(nmi)
     ari_all.append(ari)
