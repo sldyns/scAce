@@ -180,7 +180,7 @@ def run_scace(adata: sc.AnnData,
             print('Perform initial clustering through K-means')
         else:
             print('Perform initial clustering through {} with resolution = {}'.format(init_method, resolution))
-        y_pred_last, mu, scace_emb = clustering(scace_model, exp_mat, init_method, resolution=resolution)
+        y_pred_last, mu, scace_emb = clustering(scace_model, exp_mat, init_method=init_method, resolution=resolution)
 
     # Number of initial clusters
     n_clusters = len(np.unique(y_pred_last))

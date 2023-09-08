@@ -11,7 +11,7 @@ except Exception as e:
 
 setup(
     name="scace",
-    version="0.1.1",
+    version="0.1.2",
     keywords=["single-cell RNA-sequencing", "clustering", "cluster merging"],
     description="scAce: an adaptive embedding and clustering method for single-cell gene expression data",
     long_description=long_description,
